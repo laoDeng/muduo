@@ -45,6 +45,7 @@ TcpConnection::TcpConnection(EventLoop* loop,
   : loop_(CHECK_NOTNULL(loop)),
     name_(nameArg),
     state_(kConnecting),
+    reading_(true),
     socket_(new Socket(sockfd)),
     channel_(new Channel(loop, sockfd)),
     localAddr_(localAddr),
@@ -287,6 +288,36 @@ const char* TcpConnection::stateToString() const
 void TcpConnection::setTcpNoDelay(bool on)
 {
   socket_->setTcpNoDelay(on);
+}
+
+void TcpConnection::startRead()
+{
+  loop_->runInLoop(boost::bind(&TcpConnection::startReadInLoop, this));
+}
+
+void TcpConnection::startReadInLoop()
+{
+  loop_->assertInLoopThread();
+  if (!reading_ || !channel_->isReading())
+  {
+    channel_->enableReading();
+    reading_ = true;
+  }
+}
+
+void TcpConnection::stopRead()
+{
+  loop_->runInLoop(boost::bind(&TcpConnection::stopReadInLoop, this));
+}
+
+void TcpConnection::stopReadInLoop()
+{
+  loop_->assertInLoopThread();
+  if (reading_ || channel_->isReading())
+  {
+    channel_->disableReading();
+    reading_ = false;
+  }
 }
 
 void TcpConnection::connectEstablished()
